@@ -1,0 +1,39 @@
+{
+  "project": "GROW-CONNECTION",
+  "client": "VIBE CODING",
+  "platform": "BASE44",
+  "billing_gateway": "HYP (Yaad Sarig)",
+  "settings": {
+    "api_version": "1.0.0",
+    "required_env_vars": [
+      {
+        "key": "HYPAY_API_KEY",
+        "label": "API Key",
+        "description": "הנפק בממשק HYP תחת הגדרות אבטחה"
+      },
+      {
+        "key": "YAAD_PASSP",
+        "label": "סיסמת API",
+        "description": "הסיסמה שהוגדרה למסוף בממשק Yaad"
+      },
+      {
+        "key": "YAAD_MASOF",
+        "label": "מספר מסוף",
+        "description": "מספר המסוף (7 ספרות בדרך כלל)"
+      }
+    ],
+    "endpoints": {
+      "create_payment": {
+        "function_name": "createPaymentLink",
+        "method": "POST",
+        "mapping": {
+          "orderId": "entity.id",
+          "totalAmount": "entity.total",
+          "customerEmail": "user.email",
+          "customerName": "user.full_name",
+          "customerPhone": "user.phone"
+        }
+      }
+    }
+  }
+}
