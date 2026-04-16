@@ -1,48 +1,44 @@
-# GROW-CONNECTION: הגדרות סליקה עבור VIBE CODING ו-BASE44
+# GROW-CONNECTION: הגדרות סליקה (מבוסס Groupy-Loopy)
 
- מאגר זה מכיל את הגדרות החיבור והסליקה עבור מערכת GROW, המותאמות לעבודה עם תשתית BASE44 ו-VIBE CODING.
+ מאגר זה מכיל את הגדרות החיבור והסליקה המעודכנות עבור מערכת GROW, המבוססות על המימוש המוצלח בפרויקט Groupy-Loopy.
 
  ## ספק סליקה: GROW (Meshulam)
 
- החיבור מתבצע מול ממשק ה-API של Grow (משולם לשעבר) לצורך יצירת תהליכי תשלום מאובטחים.
+ החיבור מתבצע מול ה-Endpoint החדש של משולם ליצירת דפי תשלום מהירים.
 
  ### משתני סביבה נדרשים (Environment Variables)
 
- לצורך הפעלת הפונקציה ב-Supabase/BASE44, יש להגדיר את המשתנים הבאים:
+ לצורך הפעלת הפונקציות ב-BASE44, יש להגדיר:
 
- 1. `GROW_PAGE_CODE`: קוד הדף הייחודי שהונפק עבורכם במערכת Grow.
- 2. `GROW_USER_ID`: מזהה המשתמש (Merchant ID) שלכם ב-Grow.
- 3. `GROW_API_KEY`: (אופציונלי) מפתח ה-API לביצוע פעולות מתקדמות שרת-לשרת.
+ 1. `GROW_PAGE_CODE`: קוד הדף (מהמערכת של משולם).
+ 2. `GROW_USER_ID`: מזהה המשתמש (userId).
 
- ### מיפוי נתונים ל-BASE44
+ ### מיפוי נתונים ו-Endpoints
 
- הפונקציה `createGrowPaymentLink` מצפה למבנה הנתונים הבא:
+ **יצירת תשלום (Light API):**
+ - **URL:** `https://api.meshulam.co.il/api/light/createPaymentPage`
+ - **מתודה:** `POST`
+ - **שדות חובה:** `userId`, `pageCode`, `sum`, `description`.
 
- | שדה | סוג | מיפוי מ-BASE44 |
- | :--- | :--- | :--- |
- | `orderId` | String | מזהה ההזמנה (Unique ID) |
- | `totalAmount` | Number | סכום כולל לתשלום (ILS) |
- | `customerEmail` | String | אימייל הלקוח |
- | `customerName` | String | שם מלא של הלקוח |
- | `customerPhone` | String | טלפון הלקוח |
+ **בדיקת סטטוס:**
+ - **URL:** `https://api.meshulam.co.il/api/light/server/1.0/getPaymentProcessInfo`
+ - **מתודה:** `POST` (באמצעות FormData)
 
- ### שימוש בקוד
-
- ניתן לקרוא לפונקציית הסליקה באמצעות ה-SDK של BASE44:
+ ### דוגמת קריאה מה-Frontend (BASE44 SDK)
 
  ```javascript
- const { paymentUrl } = await base44.functions.invoke('createGrowPaymentLink', {
+ const { url } = await base44.functions.invoke('createGrowPayment', {
    body: {
-     orderId: 'ORD-123',
-     totalAmount: 150.00,
-     customerName: 'ישראל ישראלי',
-     customerEmail: 'customer@example.com'
+     amount: 150,
+     description: 'הצטרפות לקבוצה',
+     travelerName: 'ישראל ישראלי',
+     travelerPhone: '0501234567'
    }
  });
 
- // הפנייה לדף התשלום (Redirect)
- window.location.href = paymentUrl;
+ // העברה לדף התשלום שחזר ממשולם
+ if (url) window.location.href = url;
  ```
 
  ---
- **נכתב עבור VIBE CODING & BASE44**
+ **סנכרון מול Groupy-Loopy הושלם.**

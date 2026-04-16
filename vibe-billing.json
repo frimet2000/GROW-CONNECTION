@@ -8,31 +8,34 @@
     "required_env_vars": [
       {
         "key": "GROW_PAGE_CODE",
-        "label": "קוד דף (pageCode)",
-        "description": "קוד הדף הייחודי שהונפק בממשק Grow"
+        "label": "pageCode",
+        "description": "התקבל ממערכת משולם"
       },
       {
         "key": "GROW_USER_ID",
-        "label": "מזהה משתמש (userId)",
-        "description": "מזהה המשתמש (Merchant ID) במערכת Grow"
-      },
-      {
-        "key": "GROW_API_KEY",
-        "label": "מפתח API (במידה ונדרש)",
-        "description": "מפתח ה-API לביצוע פעולות שרת-לשרת"
+        "label": "userId",
+        "description": "מזהה המשתמש במערכת משולם"
       }
     ],
     "endpoints": {
       "create_payment": {
-        "function_name": "createGrowPaymentLink",
+        "url": "https://api.meshulam.co.il/api/light/createPaymentPage",
         "method": "POST",
-        "mapping": {
-          "orderId": "entity.id",
-          "totalAmount": "entity.total",
-          "customerEmail": "user.email",
-          "customerName": "user.full_name",
-          "customerPhone": "user.phone"
+        "payload": {
+          "userId": "env.GROW_USER_ID",
+          "pageCode": "env.GROW_PAGE_CODE",
+          "sum": "amount",
+          "description": "description",
+          "fullName": "customerName",
+          "phone": "customerPhone",
+          "successUrl": "successUrl",
+          "cancelUrl": "cancelUrl"
         }
+      },
+      "check_status": {
+        "url": "https://api.meshulam.co.il/api/light/server/1.0/getPaymentProcessInfo",
+        "method": "POST",
+        "auth": "FormData (userId, pageCode, processId)"
       }
     }
   }
