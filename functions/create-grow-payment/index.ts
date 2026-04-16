@@ -1,5 +1,5 @@
 // Grow (Meshulam) Payment Function for BASE44
-// Based on the successful implementation in groupy-loopy
+// Robust version based on proven pattern in groupy-loopy
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
@@ -16,52 +16,61 @@ serve(async (req) => {
   }
 
   try {
-    const { amount, description, travelerName, travelerPhone, successUrl, cancelUrl } = await req.json();
+    const body = await req.json();
+    const { 
+      amount, 
+      description, 
+      travelerName, 
+      travelerPhone, 
+      orderId, // This is crucial for tracking
+      successUrl, 
+      cancelUrl 
+    } = body;
 
     if (!amount || amount <= 0) {
-      return new Response(JSON.stringify({ error: "Missing or invalid amount" }), { 
-        status: 400, 
-        headers 
-      });
+      return new Response(JSON.stringify({ error: "Missing or invalid amount" }), { status: 400, headers });
     }
+
+    // Prepare the payload for Grow Light API
+    const payload = {
+      userId: Deno.env.get('GROW_USER_ID'),
+      pageCode: Deno.env.get('GROW_PAGE_CODE'),
+      sum: Math.round(amount),
+      description: description || `Order ${orderId || ''}`,
+      paymentNum: 1,
+      fullName: travelerName || "",
+      phone: travelerPhone || "",
+      
+      // CRITICAL: We pass the orderId/registrationId in a custom field so the webhook can find it
+      cField1: orderId || "", 
+      
+      successUrl: successUrl || "",
+      cancelUrl: cancelUrl || "",
+    };
+
+    console.log('Sending request to Grow:', JSON.stringify(payload));
 
     const growResponse = await fetch('https://api.meshulam.co.il/api/light/createPaymentPage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: Deno.env.get('GROW_USER_ID'),
-        pageCode: Deno.env.get('GROW_PAGE_CODE'),
-        sum: Math.round(amount),
-        description: description || "Payment",
-        paymentNum: 1,
-        fullName: travelerName || "",
-        phone: travelerPhone || "",
-        successUrl: successUrl || "",
-        cancelUrl: cancelUrl || "",
-      })
+      body: JSON.stringify(payload)
     });
 
     const data = await growResponse.json();
 
     if (data.status === 1 && data.data?.url) {
-      return new Response(JSON.stringify({ url: data.data.url }), { 
-        status: 200, 
-        headers 
-      });
+      console.log('Grow payment URL created:', data.data.url);
+      return new Response(JSON.stringify({ url: data.data.url }), { status: 200, headers });
     } else {
+      console.error('Grow API Error:', data);
       return new Response(JSON.stringify({ 
         error: data.err?.message || 'Failed to create payment page',
         details: data 
-      }), { 
-        status: 400, 
-        headers 
-      });
+      }), { status: 400, headers });
     }
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { 
-      status: 500, 
-      headers 
-    });
+    console.error('Unexpected error:', error.message);
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers });
   }
 });
