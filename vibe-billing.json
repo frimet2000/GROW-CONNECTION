@@ -2,29 +2,29 @@
   "project": "GROW-CONNECTION",
   "client": "VIBE CODING",
   "platform": "BASE44",
-  "billing_gateway": "HYP (Yaad Sarig)",
+  "billing_gateway": "GROW (Meshulam)",
   "settings": {
     "api_version": "1.0.0",
     "required_env_vars": [
       {
-        "key": "HYPAY_API_KEY",
-        "label": "API Key",
-        "description": "הנפק בממשק HYP תחת הגדרות אבטחה"
+        "key": "GROW_PAGE_CODE",
+        "label": "קוד דף (pageCode)",
+        "description": "קוד הדף הייחודי שהונפק בממשק Grow"
       },
       {
-        "key": "YAAD_PASSP",
-        "label": "סיסמת API",
-        "description": "הסיסמה שהוגדרה למסוף בממשק Yaad"
+        "key": "GROW_USER_ID",
+        "label": "מזהה משתמש (userId)",
+        "description": "מזהה המשתמש (Merchant ID) במערכת Grow"
       },
       {
-        "key": "YAAD_MASOF",
-        "label": "מספר מסוף",
-        "description": "מספר המסוף (7 ספרות בדרך כלל)"
+        "key": "GROW_API_KEY",
+        "label": "מפתח API (במידה ונדרש)",
+        "description": "מפתח ה-API לביצוע פעולות שרת-לשרת"
       }
     ],
     "endpoints": {
       "create_payment": {
-        "function_name": "createPaymentLink",
+        "function_name": "createGrowPaymentLink",
         "method": "POST",
         "mapping": {
           "orderId": "entity.id",
