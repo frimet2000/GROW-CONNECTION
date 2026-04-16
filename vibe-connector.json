@@ -1,0 +1,40 @@
+{
+  "name": "Grow (Meshulam) Payment Connector",
+  "id": "grow-vibe-connector",
+  "version": "1.1.0",
+  "type": "payment_gateway",
+  "description": "Integration for Grow (Meshulam) payments using the Light API, optimized for BASE44 projects.",
+  "runtime": "deno",
+  "platform": "supabase-edge-functions",
+  "instructions": "1. Set GROW_USER_ID and GROW_PAGE_CODE in Supabase/BASE44 env. 2. Deploy create-grow-payment function. 3. Call from client-side.",
+  "env": [
+    {
+      "key": "GROW_USER_ID",
+      "required": true,
+      "description": "Merchant User ID from Grow dashboard"
+    },
+    {
+      "key": "GROW_PAGE_CODE",
+      "required": true,
+      "description": "Unique Page Code for the payment layout"
+    }
+  ],
+  "endpoints": [
+    {
+      "id": "create_payment",
+      "path": "/create-grow-payment",
+      "method": "POST",
+      "request_schema": {
+        "amount": { "type": "number", "description": "Payment amount in ILS" },
+        "description": { "type": "string", "description": "Payment description" },
+        "travelerName": { "type": "string", "description": "Customer full name" },
+        "travelerPhone": { "type": "string", "description": "Customer phone" },
+        "successUrl": { "type": "string", "description": "Redirect URL on success" },
+        "cancelUrl": { "type": "string", "description": "Redirect URL on cancel" }
+      },
+      "response_schema": {
+        "url": { "type": "string", "description": "The Grow payment page URL" }
+      }
+    }
+  ]
+}

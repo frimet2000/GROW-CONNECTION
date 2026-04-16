@@ -1,8 +1,12 @@
-# GROW-CONNECTION: הגדרות סליקה (מבוסס Groupy-Loopy)
+# GROW-CONNECTION: Connector Blueprint for BASE44
 
- מאגר זה מכיל את הגדרות החיבור והסליקה המעודכנות עבור מערכת GROW, המבוססות על המימוש המוצלח בפרויקט Groupy-Loopy.
+ זהו מאגר הגדרות מלא (Connector Blueprint) המיועד ל-BASE44. הוא כולל את ההגדרות הטכניות והקוד הנדרש כדי לחבר את פרויקט ה-Vibe שלך ל-Grow (משולם).
 
- ## ספק סליקה: GROW (Meshulam)
+ ## מה יש במאגר?
+
+ 1. **`vibe-connector.json`**: הגדרת הקונקטור בפורמט ש-BASE44 מבין אוטומטית.
+ 2. **`functions/`**: קוד ה-Edge Function המוכן לביצוע התשלום.
+ 3. **`vibe-billing.json`**: מיפוי משתנים ופרטי התקשרות.
 
  החיבור מתבצע מול ה-Endpoint החדש של משולם ליצירת דפי תשלום מהירים.
 
