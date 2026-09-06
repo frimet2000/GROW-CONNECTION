@@ -4,39 +4,85 @@
   "platform": "BASE44",
   "billing_gateway": "GROW (Meshulam)",
   "settings": {
-    "api_version": "1.0.0",
+    "api_version": "light/server/1.0",
+    "currency": "ILS",
+    "amount_unit": "agorot (integer); shekels appear only on the wire",
+    "encoding": "multipart/form-data on every Grow call — JSON bodies are silently not parsed",
     "required_env_vars": [
-      {
-        "key": "GROW_PAGE_CODE",
-        "label": "pageCode",
-        "description": "התקבל ממערכת משולם"
-      },
-      {
-        "key": "GROW_USER_ID",
-        "label": "userId",
-        "description": "מזהה המשתמש במערכת משולם"
-      }
+      { "key": "GROW_USER_ID", "label": "userId", "description": "מזהה המשתמש במערכת משולם" },
+      { "key": "GROW_PAGE_CODE", "label": "pageCode", "description": "קוד הדף שהתקבל ממערכת משולם" },
+      { "key": "GROW_API_KEY", "label": "x-api-key", "description": "מפתח API. חובה מאז עדכון השרת של GROW (08/2026)" }
+    ],
+    "optional_env_vars": [
+      { "key": "GROW_ENVIRONMENT", "default": "sandbox" },
+      { "key": "GROW_EXPECTED_TERMINAL", "description": "חובה בפרודקשן — מונע חיוב דרך מסוף בדיקה" },
+      { "key": "GROW_VAT_TYPE", "default": "1" },
+      { "key": "GROW_NOTIFY_URL" },
+      { "key": "GROW_SUCCESS_URL" },
+      { "key": "GROW_WEBHOOK_KEY" },
+      { "key": "GROW_WEBHOOK_IPS" },
+      { "key": "GROW_DISABLE_IP_CHECK" },
+      { "key": "GROW_BASE_URL" },
+      { "key": "ALLOWED_ORIGIN" }
     ],
     "endpoints": {
-      "create_payment": {
-        "url": "https://api.meshulam.co.il/api/light/createPaymentPage",
+      "create_payment_link": {
+        "sandbox_url": "https://sandboxapi.grow.link/api/light/server/1.0/CreatePaymentLink",
+        "production_url": "https://api.grow.link/api/light/server/1.0/CreatePaymentLink",
         "method": "POST",
+        "encoding": "multipart/form-data",
+        "headers": { "x-api-key": "env.GROW_API_KEY" },
         "payload": {
           "userId": "env.GROW_USER_ID",
           "pageCode": "env.GROW_PAGE_CODE",
-          "sum": "amount",
-          "description": "description",
-          "fullName": "customerName",
-          "phone": "customerPhone",
+          "paymentLinkType": "2",
+          "isActive": "1",
+          "title": "description",
+          "paymentTypes[0][type]": "payments",
+          "paymentTypes[0][payments][paymentsPaymentNum]": "1",
+          "products[data][0][name]": "description",
+          "products[data][0][price]": "amountAgorot / 100",
+          "products[data][0][vatType]": "env.GROW_VAT_TYPE",
           "successUrl": "successUrl",
-          "cancelUrl": "cancelUrl"
-        }
+          "notifyUrl": "env.GROW_NOTIFY_URL",
+          "cField1": "idempotencyKey"
+        },
+        "notes": [
+          "paymentLinkType must be 2 — value 1 renders a dead payment button (GROW support, 31/08/2026).",
+          "paymentTypes[0][type] is the literal string \"payments\"; numeric codes fail with err.id 427.",
+          "There is no cancelUrl in this schema — successUrl only.",
+          "Payer name and phone are not pre-filled; Grow's hosted page collects them from whoever pays."
+        ]
+      },
+      "approve_transaction": {
+        "sandbox_url": "https://sandbox.meshulam.co.il/api/light/server/1.0/approveTransaction",
+        "production_url": "https://secure.meshulam.co.il/api/light/server/1.0/approveTransaction",
+        "method": "POST",
+        "encoding": "multipart/form-data",
+        "payload": { "pageCode": "env.GROW_PAGE_CODE", "transactionId": "from callback", "transactionToken": "from callback" },
+        "notes": [
+          "Required after every successful payment, best-effort by Grow's own definition: the transaction is processed even if this call fails.",
+          "Both identifiers are required; sending one fails with err.id 54 naming the other."
+        ]
       },
       "check_status": {
-        "url": "https://api.meshulam.co.il/api/light/server/1.0/getPaymentProcessInfo",
+        "sandbox_url": "https://sandbox.meshulam.co.il/api/light/server/1.0/getPaymentProcessInfo",
+        "production_url": "https://secure.meshulam.co.il/api/light/server/1.0/getPaymentProcessInfo",
         "method": "POST",
-        "auth": "FormData (userId, pageCode, processId)"
+        "encoding": "multipart/form-data",
+        "payload": { "userId": "env.GROW_USER_ID", "pageCode": "env.GROW_PAGE_CODE", "processId": "order.payment_id", "processToken": "order.payment_process_token" }
       }
+    },
+    "webhook": {
+      "path": "/grow-webhook",
+      "verification": "sender IP allow-list (https://developers.grow.business/reference/ip-address); webhookKey where the format carries one",
+      "matching_field": "cField1",
+      "always_returns": 200,
+      "notes": [
+        "Grow does not send webhookKey on PaymentLink callbacks (support, 08/2026).",
+        "Callback keys arrive bracket-flattened (data[transactionId]) — read through flattenBracketKeys or every field is null.",
+        "Status values include Hebrew (\"שולם\", \"בוטל\"); anything unrecognised is treated as failure, never as paid."
+      ]
     }
   }
 }

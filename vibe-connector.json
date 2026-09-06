@@ -1,22 +1,79 @@
 {
   "name": "Grow (Meshulam) Payment Connector",
   "id": "grow-vibe-connector",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "type": "payment_gateway",
-  "description": "Integration for Grow (Meshulam) payments using the Light API, optimized for BASE44 projects.",
+  "description": "Grow (Meshulam) Light API integration for BASE44: CreatePaymentLink, verified webhook settlement, approveTransaction, and status reconciliation.",
   "runtime": "deno",
   "platform": "supabase-edge-functions",
-  "instructions": "1. Set GROW_USER_ID and GROW_PAGE_CODE in Supabase/BASE44 env. 2. Deploy create-grow-payment function. 3. Call from client-side.",
+  "instructions": "1. Set GROW_USER_ID, GROW_PAGE_CODE and GROW_API_KEY (all three required). 2. Deploy create-grow-payment, grow-webhook and check-grow-status. 3. Register the grow-webhook URL with GROW as the notifyUrl. 4. Keep GROW_ENVIRONMENT=sandbox until GROW moves the account to SECURE, then set GROW_EXPECTED_TERMINAL before switching to production.",
   "env": [
     {
       "key": "GROW_USER_ID",
       "required": true,
-      "description": "Merchant User ID from Grow dashboard"
+      "description": "Merchant user id from the Grow dashboard"
     },
     {
       "key": "GROW_PAGE_CODE",
       "required": true,
-      "description": "Unique Page Code for the payment layout"
+      "description": "Page code for the payment layout"
+    },
+    {
+      "key": "GROW_API_KEY",
+      "required": true,
+      "description": "Sent as the x-api-key header. Mandatory since Grow's 2026-08 server update; requests without it are rejected."
+    },
+    {
+      "key": "GROW_ENVIRONMENT",
+      "required": false,
+      "default": "sandbox",
+      "description": "\"production\" switches to the live hosts. Anything else stays on sandbox."
+    },
+    {
+      "key": "GROW_EXPECTED_TERMINAL",
+      "required": false,
+      "description": "Terminal code issued for this merchant. Required in production: a test terminal reports every charge as successful while collecting nothing."
+    },
+    {
+      "key": "GROW_VAT_TYPE",
+      "required": false,
+      "default": "1",
+      "description": "1 = regular VAT, 3 = VAT-exempt. Required field on CreatePaymentLink."
+    },
+    {
+      "key": "GROW_NOTIFY_URL",
+      "required": false,
+      "description": "Absolute URL Grow posts the callback to. Defaults to <function origin>/grow-webhook."
+    },
+    {
+      "key": "GROW_SUCCESS_URL",
+      "required": false,
+      "description": "Fallback redirect after payment when the caller does not pass successUrl."
+    },
+    {
+      "key": "GROW_WEBHOOK_KEY",
+      "required": false,
+      "description": "Shared secret echoed as webhookKey on the invoice/recurring callback formats. Not sent on PaymentLink callbacks — those are verified by sender IP."
+    },
+    {
+      "key": "GROW_WEBHOOK_IPS",
+      "required": false,
+      "description": "Override for Grow's published webhook sender IPs (comma or space separated)."
+    },
+    {
+      "key": "GROW_DISABLE_IP_CHECK",
+      "required": false,
+      "description": "\"1\" disables webhook sender verification. Local testing only — it makes the endpoint forgeable by anyone."
+    },
+    {
+      "key": "GROW_BASE_URL",
+      "required": false,
+      "description": "Overrides the Light API host if Grow issues this merchant a different one."
+    },
+    {
+      "key": "ALLOWED_ORIGIN",
+      "required": false,
+      "description": "Origin allowed to call create-grow-payment. Leave unset only in development."
     }
   ],
   "endpoints": [
@@ -24,17 +81,73 @@
       "id": "create_payment",
       "path": "/create-grow-payment",
       "method": "POST",
+      "content_type": "application/json",
+      "notes": "Prices the order server-side from the Order entity. The client cannot set the amount.",
       "request_schema": {
-        "amount": { "type": "number", "description": "Payment amount in ILS" },
-        "description": { "type": "string", "description": "Payment description" },
-        "travelerName": { "type": "string", "description": "Customer full name" },
-        "travelerPhone": { "type": "string", "description": "Customer phone" },
-        "successUrl": { "type": "string", "description": "Redirect URL on success" },
-        "cancelUrl": { "type": "string", "description": "Redirect URL on cancel" }
+        "orderId": { "type": "string", "required": true, "description": "Order entity id. The amount is read from it." },
+        "successUrl": { "type": "string", "required": false, "description": "Redirect after a successful payment" }
       },
       "response_schema": {
-        "url": { "type": "string", "description": "The Grow payment page URL" }
+        "url": { "type": "string", "description": "Grow hosted payment page URL" },
+        "processId": { "type": "string", "description": "Grow process id, stored for reconciliation" }
+      }
+    },
+    {
+      "id": "webhook",
+      "path": "/grow-webhook",
+      "method": "POST",
+      "content_type": "application/x-www-form-urlencoded",
+      "notes": "Register this URL with Grow as notifyUrl. Verifies the sender IP, matches on cField1, checks the amount, settles once, then calls approveTransaction. Always answers 200.",
+      "response_schema": {
+        "received": { "type": "boolean" },
+        "matched": { "type": "boolean" }
+      }
+    },
+    {
+      "id": "check_status",
+      "path": "/check-grow-status",
+      "method": "POST",
+      "content_type": "application/json",
+      "notes": "Reconciliation path for a callback that never arrived. Confirms with Grow server-to-server and may settle the order.",
+      "request_schema": {
+        "orderId": { "type": "string", "required": true }
+      },
+      "response_schema": {
+        "status": { "type": "string", "description": "completed | pending | payment_failed | payment_review" }
       }
     }
-  ]
+  ],
+  "grow_api": {
+    "create_payment_link": {
+      "sandbox": "https://sandboxapi.grow.link/api/light/server/1.0/CreatePaymentLink",
+      "production": "https://api.grow.link/api/light/server/1.0/CreatePaymentLink",
+      "method": "POST",
+      "encoding": "multipart/form-data",
+      "headers": { "x-api-key": "env.GROW_API_KEY" }
+    },
+    "approve_transaction": {
+      "sandbox": "https://sandbox.meshulam.co.il/api/light/server/1.0/approveTransaction",
+      "production": "https://secure.meshulam.co.il/api/light/server/1.0/approveTransaction",
+      "method": "POST",
+      "encoding": "multipart/form-data"
+    },
+    "get_payment_process_info": {
+      "sandbox": "https://sandbox.meshulam.co.il/api/light/server/1.0/getPaymentProcessInfo",
+      "production": "https://secure.meshulam.co.il/api/light/server/1.0/getPaymentProcessInfo",
+      "method": "POST",
+      "encoding": "multipart/form-data"
+    }
+  },
+  "order_entity_fields": {
+    "payment_idempotency_key": "string — generated per attempt, sent as cField1, used to match the callback",
+    "payment_amount_agorot": "number — integer agorot, the amount the webhook is checked against",
+    "payment_id": "string — Grow process id, then the transaction reference once settled",
+    "payment_process_token": "string — Grow process token, for getPaymentProcessInfo",
+    "payment_url": "string — the hosted payment page URL",
+    "payment_failure_reason": "string",
+    "payment_card_last4": "string",
+    "payment_auth_number": "string",
+    "paid_at": "datetime",
+    "status": "pending_payment | completed | payment_failed | payment_review"
+  }
 }
